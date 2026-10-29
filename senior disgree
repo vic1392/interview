@@ -1,0 +1,7 @@
+"On our EKS cluster, our applications needed database credentials pulled directly from AWS Secrets Manager instead of hard-coded Kubernetes Secrets. The requirement was that when a credential rotated, the pod should pick up the new value within a couple of minutes, without a redeploy. I owned the design for that integration.
+
+My first proposal was to use the managed EKS installation path for the Secrets Store CSI Driver, because it reduces upgrade and patching work for the platform team. My senior engineer pushed back — he said that path wouldn't give us the control we needed over the rotation and sync interval in our setup.
+
+At first I thought this was a capability gap, so instead of arguing, I went through the driver's documentation and configuration options carefully. That's where I understood his point: the driver itself supports rotation polling, but the managed installation path we were using didn't expose the driver flag or provider configuration we needed to tune it. Helm did, because we could set the rotation poll interval and pin the provider version ourselves.
+
+I agreed with his approach, and we went with the Helm installation — but with his governance requirements: chart version pinned, values managed in GitOps, least-privilege access through IRSA / Pod Identity, and alerts on sync failures. After this change, rotated credentials were picked up within the agreed time window without needing a pod restart.
