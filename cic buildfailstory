@@ -1,0 +1,11 @@
+A few months ago, our pipeline on the develop branch suddenly started failing. The build stage passed, but the test stage crashed with a NoSuchMethodError. The strange part was — nobody had touched our application code. So I knew the problem had to be outside the code, in the environment.
+
+I started by reading the logs. The error pointed to a library method that no longer existed. Then I compared the current build with the last successful build from a few days earlier — I diffed the dependency lists and saw a minor-version bump in a shared package. To confirm it, I reproduced the failure locally: I ran the build with the old lockfile and it passed, then with the new one and it failed. That proved the dependency was the culprit.
+
+The root cause was a transitive dependency — a library we use had been auto-updated, and that update quietly pulled in a newer, incompatible version of another shared library, which had removed a method our app was calling.
+
+Now, here's how I handled ownership. I own the pipeline, but the developer owns the code — so I don't change application dependencies myself. I did the first-level debugging to prove it was a dependency issue and not a pipeline problem. Then, to unblock the team immediately, I pinned the dependency back to the last working version in a hotfix branch. After that, I handed the developer a clear diagnosis: the exact library, the two versions, and the method that disappeared — and asked them to confirm whether we should stay on the old version or update the code to the new API.
+
+For the long-term fix, I committed a lockfile generated from a known-good build, so every build now resolves the exact same versions — including transitive ones. And I added a dependency-check step to the pipeline plus alerts for version drift, so the team gets told when a dependency changes instead of finding out from a crash.
+
+The takeaway for me was: 'It worked yesterday' usually means something outside the code changed. Now I always check dependency and environment drift first — and we lock versions so it can't silently happen again."
